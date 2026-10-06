@@ -27,6 +27,15 @@ pnpm exec wrangler secret put CLOUDFLARE_API_TOKEN
 pnpm deploy
 ```
 
+### Deploy on push
+
+Pushing to `main` on GitHub deploys automatically through Cloudflare **Workers Builds** (Worker → Settings → Build → Connect), using:
+
+- Build command: `pnpm opennextjs-cloudflare build`
+- Deploy command: `pnpm opennextjs-cloudflare deploy`
+
+Secrets and database migrations are not part of the build. Set secrets once with `wrangler secret put`, and run `pnpm db:migrate:remote` yourself whenever a new file lands in `migrations/`.
+
 Free plan limits to keep in mind: the Worker must be **3 MB or less compressed** (`pnpm deploy` prints the size), and each request gets about **10 ms of CPU**. Password hashing (PBKDF2, 100k iterations) is the heaviest work the app does.
 
 ### RealtimeKit setup
