@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "prayer-live",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "prayer-live" }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "global_prayer_streams",
+      // Replace with the id printed by `pnpm exec wrangler d1 create prayer-live`
+      "database_id": "0cc9eec3-fbba-476b-bb84-75d336905dca",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "REALTIMEKIT_HOST_PRESET": "webinar_presenter",
+    "REALTIMEKIT_LISTENER_PRESET": "webinar_viewer"
+  },
+  "observability": { "enabled": true }
+}

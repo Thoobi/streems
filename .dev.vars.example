@@ -1,0 +1,8 @@
+# Local dev secrets. Copy this file to .dev.vars (read by `next dev` via OpenNext and by wrangler).
+# In production set them with: pnpm exec wrangler secret put <NAME>
+
+# Cloudflare RealtimeKit — https://dash.cloudflare.com/?to=/:account/realtime/kit
+CLOUDFLARE_ACCOUNT_ID=
+REALTIMEKIT_APP_ID=
+# API token with the "Realtime Admin" permission
+CLOUDFLARE_API_TOKEN=
