@@ -1,10 +1,10 @@
 "use client";
 
-import { ArrowRight, Broadcast, LockKey } from "@phosphor-icons/react";
+import { ArrowRight, Broadcast } from "@phosphor-icons/react";
 import { useActionState } from "react";
-import { joinByCode, startCall, unlockHostAction } from "@/app/actions";
+import { joinByCode, startCall } from "@/app/actions";
 import { Waveform } from "./brand";
-import { errorClass, inputClass, primaryButtonClass } from "./ui";
+import { errorClass, inputClass } from "./ui";
 
 export function JoinCodeForm() {
   const [state, action, pending] = useActionState(joinByCode, undefined);
@@ -42,28 +42,7 @@ export function JoinCodeForm() {
   );
 }
 
-export function PasscodeForm() {
-  const [state, action, pending] = useActionState(unlockHostAction, undefined);
-  return (
-    <form action={action} className="flex flex-col gap-5">
-      <label className="flex flex-col gap-2">
-        <span className="text-sm font-medium">Host passcode</span>
-        <input name="passcode" type="password" required autoComplete="current-password" autoFocus className={inputClass} />
-      </label>
-      {state?.error && (
-        <p role="alert" className={errorClass}>
-          {state.error}
-        </p>
-      )}
-      <button disabled={pending} className={primaryButtonClass}>
-        {!pending && <LockKey size={18} weight="bold" className="mr-2" />}
-        {pending ? "Checking…" : "Unlock"}
-      </button>
-    </form>
-  );
-}
-
-export function StartCallForm({ lastHostName }: { lastHostName: string }) {
+export function StartCallForm() {
   const [state, action, pending] = useActionState(startCall, undefined);
   return (
     <form
@@ -89,19 +68,6 @@ export function StartCallForm({ lastHostName }: { lastHostName: string }) {
           className="w-full border-b border-white/15 bg-transparent pb-3 font-sans text-2xl font-medium tracking-tight text-white outline-none transition placeholder:text-stone-600 focus:border-amber-500 sm:text-3xl"
         />
         <span className="text-sm text-stone-400">People see this when they open your link.</span>
-      </label>
-
-      <label className="relative flex flex-col gap-2">
-        <span className="text-sm text-stone-400">Led by</span>
-        <input
-          name="hostName"
-          required
-          defaultValue={lastHostName}
-          placeholder="Your name"
-          maxLength={40}
-          autoComplete="name"
-          className="h-12 w-full rounded-xl border border-white/15 bg-white/5 px-4 text-base text-white outline-none transition placeholder:text-stone-500 focus:border-amber-500"
-        />
       </label>
 
       {state?.error && (

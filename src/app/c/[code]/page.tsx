@@ -4,10 +4,10 @@ import { endCall } from "@/app/actions";
 import { LiveRoomLoader } from "@/components/live-room-loader";
 import { HOST_PARTICIPANT_ID } from "@/components/room/types";
 import { getCall } from "@/lib/db";
-import { isHost as checkHost } from "@/lib/host";
+import { getCurrentUser } from "@/lib/auth";
 import { createParticipantToken } from "@/lib/realtimekit";
 
-// The link is the invitation: anyone who opens /c/<code> can join, no account needed.
+// The host shares /c/<code>; anyone who opens it can join, no account needed.
 export default async function CallPage({ params }: PageProps<"/c/[code]">) {
   const { code } = await params;
   const call = await getCall(code);
@@ -18,8 +18,10 @@ export default async function CallPage({ params }: PageProps<"/c/[code]">) {
     return <Notice title="This prayer has ended" body={`${call.title}, led by ${call.host_name}. Thank you for joining.`} />;
   }
 
-  const isHost = await checkHost();
-  // Joiners can type a name before joining (set in the browser); "Guest" until then.
+  // The host is the account that started the call. Everyone else needs no account:
+  // they type a name before joining (set in the browser), "Guest" until then.
+  const user = await getCurrentUser();
+  const isHost = user?.id === call.host_id;
   const participant = isHost
     ? { id: HOST_PARTICIPANT_ID, name: call.host_name, role: "host" as const }
     : { id: `guest-${crypto.randomUUID()}`, name: "Guest", role: "listener" as const };

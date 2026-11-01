@@ -3,23 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { requireUser } from "@/lib/auth";
 import { getCall, getDb, newCallCode, normalizeCode, type Call } from "@/lib/db";
-import { isHost, lockHost, unlockHost } from "@/lib/host";
 import { createMeeting } from "@/lib/realtimekit";
 
 export type FormState = { error?: string } | undefined;
 
-export async function unlockHostAction(_: FormState, formData: FormData): Promise<FormState> {
-  const passcode = String(formData.get("passcode") ?? "");
-  if (!(await unlockHost(passcode))) return { error: "That passcode isn’t right" };
-  redirect("/host");
-}
-
-export async function lockHostAction() {
-  await lockHost();
-  redirect("/");
-}
-
+// Joiners don't need an account: a code (or the host's link) is enough.
 export async function joinByCode(_: FormState, formData: FormData): Promise<FormState> {
   const code = normalizeCode(String(formData.get("code") ?? ""));
   if (!code) return { error: "Enter the call code" };
@@ -29,14 +19,15 @@ export async function joinByCode(_: FormState, formData: FormData): Promise<Form
 }
 
 export async function startCall(_: FormState, formData: FormData): Promise<FormState> {
-  if (!(await isHost())) redirect("/host");
+  const host = await requireUser();
   const title = z.string().trim().min(1).max(120).catch("Prayer meeting").parse(formData.get("title"));
-  const parsedName = z.string().trim().min(1, "Add your name so people know who’s leading").max(40).safeParse(formData.get("hostName"));
-  if (!parsedName.success) return { error: parsedName.error.issues[0].message };
 
   const db = await getDb();
-  // One host, one call at a time: starting again reopens the live one.
-  const live = await db.prepare("SELECT code FROM calls WHERE status = 'live' LIMIT 1").first<Pick<Call, "code">>();
+  // One live call per host: starting again reopens it.
+  const live = await db
+    .prepare("SELECT code FROM calls WHERE host_id = ? AND status = 'live' LIMIT 1")
+    .bind(host.id)
+    .first<Pick<Call, "code">>();
   if (live) redirect(`/c/${live.code}`);
 
   let meetingId: string;
@@ -49,20 +40,20 @@ export async function startCall(_: FormState, formData: FormData): Promise<FormS
 
   const code = newCallCode();
   await db
-    .prepare("INSERT INTO calls (code, title, host_name, meeting_id) VALUES (?, ?, ?, ?)")
-    .bind(code, title, parsedName.data, meetingId)
+    .prepare("INSERT INTO calls (code, host_id, title, host_name, meeting_id) VALUES (?, ?, ?, ?, ?)")
+    .bind(code, host.id, title, host.name, meetingId)
     .run();
-  revalidatePath("/host");
+  revalidatePath("/");
   redirect(`/c/${code}`);
 }
 
 export async function endCall(code: string) {
-  if (!(await isHost())) redirect("/host");
+  const host = await requireUser();
   const db = await getDb();
   await db
-    .prepare("UPDATE calls SET status = 'ended', ended_at = datetime('now') WHERE code = ? AND status = 'live'")
-    .bind(code)
+    .prepare("UPDATE calls SET status = 'ended', ended_at = datetime('now') WHERE code = ? AND host_id = ? AND status = 'live'")
+    .bind(code, host.id)
     .run();
-  revalidatePath("/host");
-  redirect("/host");
+  revalidatePath("/");
+  redirect("/");
 }

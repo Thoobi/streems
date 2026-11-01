@@ -1,7 +1,15 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  created_at: string;
+};
+
 export type Call = {
   code: string;
+  host_id: string;
   title: string;
   host_name: string;
   meeting_id: string;
