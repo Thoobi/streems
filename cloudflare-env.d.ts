@@ -7,6 +7,7 @@ interface __BaseEnv_CloudflareEnv {
 	CLOUDFLARE_ACCOUNT_ID: string;
 	REALTIMEKIT_APP_ID: string;
 	CLOUDFLARE_API_TOKEN: string;
+	HOST_PASSCODE: string;
 	REALTIMEKIT_HOST_PRESET: string;
 	REALTIMEKIT_LISTENER_PRESET: string;
 	WORKER_SELF_REFERENCE: Fetcher /* prayer-live */;
@@ -19,7 +20,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "CLOUDFLARE_ACCOUNT_ID" | "REALTIMEKIT_APP_ID" | "CLOUDFLARE_API_TOKEN" | "REALTIMEKIT_HOST_PRESET" | "REALTIMEKIT_LISTENER_PRESET">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "CLOUDFLARE_ACCOUNT_ID" | "REALTIMEKIT_APP_ID" | "CLOUDFLARE_API_TOKEN" | "HOST_PASSCODE" | "REALTIMEKIT_HOST_PRESET" | "REALTIMEKIT_LISTENER_PRESET">> {}
 }
 
 // Begin runtime types

@@ -1,6 +1,6 @@
 # Prayer Live
 
-A Mixlr-style live audio broadcast for prayer. Anyone can create an account, go live, and share their link. People with the link listen as a guest (just a name) or signed in.
+A Mixlr-style live audio call for prayer. One host starts the call and shares its link (or its 6-character code). Anyone who opens the link joins, with no account or sign-up, and can optionally type a name so others know who they are.
 
 It runs entirely on Cloudflare: Next.js 16 on **Workers** (via [OpenNext](https://opennext.js.org/cloudflare)), data in **D1**, and live audio through **[RealtimeKit](https://developers.cloudflare.com/realtime/realtimekit/)**.
 
@@ -24,6 +24,7 @@ pnpm db:migrate:remote
 pnpm exec wrangler secret put CLOUDFLARE_ACCOUNT_ID
 pnpm exec wrangler secret put REALTIMEKIT_APP_ID
 pnpm exec wrangler secret put CLOUDFLARE_API_TOKEN
+pnpm exec wrangler secret put HOST_PASSCODE
 pnpm deploy
 ```
 
@@ -36,7 +37,7 @@ Pushing to `main` on GitHub deploys automatically through Cloudflare **Workers B
 
 Secrets and database migrations are not part of the build. Set secrets once with `wrangler secret put`, and run `pnpm db:migrate:remote` yourself whenever a new file lands in `migrations/`.
 
-Free plan limits to keep in mind: the Worker must be **3 MB or less compressed** (`pnpm deploy` prints the size), and each request gets about **10 ms of CPU**. Password hashing (PBKDF2, 100k iterations) is the heaviest work the app does.
+Free plan limits to keep in mind: the Worker must be **3 MB or less compressed** (`pnpm deploy` prints the size), and each request gets about **10 ms of CPU**. 
 
 ### RealtimeKit setup
 
@@ -46,19 +47,19 @@ Free plan limits to keep in mind: the Worker must be **3 MB or less compressed**
 
 ### Who hosts
 
-Every account can host. Whoever starts a broadcast is its host (one live broadcast per person at a time), and everyone else who opens its link listens.
+There are no accounts. The host goes to `/host`, enters the `HOST_PASSCODE` secret once (remembered by a cookie on that device), names the call and starts it. Only one call is live at a time. The host shares `/c/<code>`; people can also type the code on the home page. Changing `HOST_PASSCODE` signs the host out everywhere.
 
 ## How it works
 
 | Piece | File |
 | --- | --- |
-| D1 schema (users, sessions, broadcasts) | `migrations/` |
-| D1 access | `src/lib/db.ts` |
-| Auth: PBKDF2 passwords, DB-backed session cookie | `src/lib/auth.ts` |
-| Sign in / sign up screens and actions | `src/app/(auth)/` |
+| D1 schema (`calls`) | `migrations/` |
+| D1 access, join codes | `src/lib/db.ts` |
+| Host passcode cookie | `src/lib/host.ts` |
+| Host screen (unlock, start call, past calls) | `src/app/host/page.tsx` |
 | RealtimeKit REST client (create meeting, participant token) | `src/lib/realtimekit.ts` |
-| Go live / end broadcast actions | `src/app/broadcast-actions.ts` |
-| Live room page; issues each user an auth token server-side | `src/app/live/[id]/page.tsx` |
+| Unlock / start / end / join-by-code actions | `src/app/actions.ts` |
+| Call page; issues each person a participant token server-side | `src/app/c/[code]/page.tsx` |
 | Custom RealtimeKit UI (`RtkUiProvider`, client-only) | `src/components/live-room.tsx` |
 
-When someone clicks **Go live**, the app creates a RealtimeKit meeting and they get a `/live/<id>` link to share. Whoever opens it gets a participant token: the host preset for the person who started it, the listener preset for everyone else, and the browser joins with `useRealtimeKitClient`. API credentials never leave the server.
+When the host clicks **Start call**, the app creates a RealtimeKit meeting and a `/c/<code>` link. Whoever opens it gets a participant token: the host preset if they have the host cookie, the listener preset for everyone else. Joiners' names are set in the browser before joining, and the room leaves the meeting as soon as the page closes or navigates away, so others see people join and leave right away. API credentials never leave the server.

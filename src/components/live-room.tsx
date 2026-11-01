@@ -24,20 +24,19 @@ import { LiveBadge, Waveform } from "./brand";
 import { Avatar, initials } from "./room/avatar";
 import { MediaStage, type Feed } from "./room/media-stage";
 import { PeopleSheet, type HandRequest } from "./room/people-sheet";
-import type { Meeting } from "./room/types";
+import { HOST_PARTICIPANT_ID, type Meeting } from "./room/types";
 import { useMeetingUpdates } from "./room/use-meeting-updates";
 import { ShareLink } from "./share-link";
 
 export type LiveRoomProps = {
   authToken: string;
   isHost: boolean;
-  broadcastId: string;
+  // Join code; the call's link is /c/<code>.
+  code: string;
   title: string;
   hostName: string;
-  // users.id of the host; RealtimeKit carries it as each participant's customParticipantId.
-  hostId: string;
   startedAt: string;
-  endBroadcast: () => Promise<void>;
+  endCall: () => Promise<void>;
 };
 
 // Audio-only room built on the RealtimeKit core SDK (no video-call UI kit layout).
@@ -48,6 +47,20 @@ export default function LiveRoom(props: LiveRoomProps) {
     // Hosts broadcast their microphone; listeners join muted. Audio only, like Mixlr.
     initMeeting({ authToken: props.authToken, defaults: { audio: props.isHost, video: false } });
   }, [props.authToken, props.isHost, initMeeting]);
+
+  // Leave the room the moment this page goes away (tab closed, back button, home link),
+  // so everyone else sees you leave right away instead of after a connection timeout.
+  useEffect(() => {
+    if (!meeting) return;
+    const leave = () => {
+      if (meeting.self.roomJoined) meeting.leave().catch(() => {});
+    };
+    window.addEventListener("pagehide", leave);
+    return () => {
+      window.removeEventListener("pagehide", leave);
+      leave();
+    };
+  }, [meeting]);
 
   return (
     <div className="relative flex min-h-dvh flex-1 flex-col overflow-hidden bg-stone-950 text-white">
@@ -87,8 +100,8 @@ function ConnectedRoom({ meeting, ...props }: LiveRoomProps & { meeting: Meeting
   const stageAccess = meeting.self.permissions.stageAccess as string;
 
   const others = Array.from(meeting.participants.joined.values()) as RTKParticipant[];
-  const host = props.isHost ? null : others.find((p) => p.customParticipantId === props.hostId);
-  const guests = others.filter((p) => p.customParticipantId !== props.hostId);
+  const host = props.isHost ? null : others.find((p) => p.customParticipantId === HOST_PARTICIPANT_ID);
+  const guests = others.filter((p) => p.customParticipantId !== HOST_PARTICIPANT_ID);
   const speakers = guests.filter((p) => p.stageStatus === "ON_STAGE");
   const listeners = guests.filter((p) => p.stageStatus !== "ON_STAGE");
   // Count yourself when you're listening.
@@ -125,9 +138,25 @@ function ConnectedRoom({ meeting, ...props }: LiveRoomProps & { meeting: Meeting
     }
   }
 
+  // Joiners may type a name; we remember it on this device for next time.
+  const [name, setName] = useState(() => {
+    try {
+      return localStorage.getItem(NAME_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  });
+
   async function join() {
     setJoining(true);
     try {
+      const chosen = name.trim().slice(0, 40);
+      if (!props.isHost && !meeting.self.roomJoined) {
+        meeting.self.setName(chosen || "Guest");
+        try {
+          localStorage.setItem(NAME_KEY, chosen);
+        } catch {}
+      }
       await meeting.join();
       // Webinar presets put presenters on stage; make sure, so listeners can hear.
       if (props.isHost && meeting.stage.status !== "ON_STAGE") await meeting.stage.join().catch(() => {});
@@ -159,7 +188,7 @@ function ConnectedRoom({ meeting, ...props }: LiveRoomProps & { meeting: Meeting
     startEnding(async () => {
       // Remove listeners from the room so they see "ended" right away; ignore if the preset can't.
       await meeting.participants.kickAll().catch(() => {});
-      await props.endBroadcast();
+      await props.endCall();
     });
   }
 
@@ -196,9 +225,28 @@ function ConnectedRoom({ meeting, ...props }: LiveRoomProps & { meeting: Meeting
           </div>
         }
         controls={
-          <div className="flex w-full flex-col items-center gap-3">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void join();
+            }}
+            className="flex w-full flex-col items-center gap-3"
+          >
+            {!props.isHost && (
+              <label className="flex w-full max-w-sm flex-col gap-2">
+                <span className="text-sm text-stone-400">Your name (optional)</span>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoComplete="name"
+                  maxLength={40}
+                  placeholder="So others know it’s you"
+                  className="h-12 w-full rounded-xl border border-white/15 bg-white/5 px-4 text-base text-white outline-none transition placeholder:text-stone-500 focus:border-amber-500"
+                />
+              </label>
+            )}
             <button
-              onClick={join}
+              type="submit"
               disabled={joining}
               className={`flex h-16 w-full max-w-sm items-center justify-center gap-3 rounded-full text-lg font-semibold shadow-xl transition active:scale-[0.99] disabled:opacity-60 ${
                 props.isHost ? "bg-red-600 shadow-red-950/50 hover:bg-red-500" : "bg-white text-stone-900 hover:bg-stone-200"
@@ -212,14 +260,14 @@ function ConnectedRoom({ meeting, ...props }: LiveRoomProps & { meeting: Meeting
                 </>
               ) : (
                 <>
-                  <Play size={22} weight="fill" /> Tap to listen
+                  <Play size={22} weight="fill" /> Join the prayer
                 </>
               )}
             </button>
             <p className="text-xs text-stone-500">
-              {props.isHost ? "Your listeners will hear your microphone." : "Turn your volume up."}
+              {props.isHost ? "Your listeners will hear your microphone." : "No account needed. Turn your volume up."}
             </p>
-          </div>
+          </form>
         }
       />
     );
@@ -379,7 +427,7 @@ function ConnectedRoom({ meeting, ...props }: LiveRoomProps & { meeting: Meeting
                 {mediaButtons}
                 {micButton}
                 <div className="flex items-center gap-3">
-                  <ShareLink path={`/live/${props.broadcastId}`} title={props.title} className={iconButton} compact />
+                  <ShareLink path={`/c/${props.code}`} title={props.title} className={iconButton} compact />
                   {props.isHost ? (
                     <button
                       onClick={end}
@@ -399,7 +447,7 @@ function ConnectedRoom({ meeting, ...props }: LiveRoomProps & { meeting: Meeting
               </div>
             ) : (
               <div className="flex items-center justify-between gap-4">
-                <ShareLink path={`/live/${props.broadcastId}`} title={props.title} className={roundButton} compact />
+                <ShareLink path={`/c/${props.code}`} title={props.title} className={roundButton} compact />
                 {stageAccess === "NOT_ALLOWED" ? (
                   <Waveform bars={14} className="h-8 flex-1 gap-1" barClassName="w-1 flex-1 bg-amber-400/80" />
                 ) : (
@@ -520,6 +568,8 @@ type Sharer = Pick<
   RTKParticipant,
   "videoEnabled" | "videoTrack" | "screenShareEnabled" | "screenShareTracks" | "audioEnabled"
 >;
+
+const NAME_KEY = "gps_name";
 
 // Phone browsers can't share their screen, so only offer it where the API exists.
 const canShareScreen = typeof navigator !== "undefined" && typeof navigator.mediaDevices?.getDisplayMedia === "function";

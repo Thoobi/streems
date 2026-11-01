@@ -6,3 +6,6 @@ CLOUDFLARE_ACCOUNT_ID=
 REALTIMEKIT_APP_ID=
 # API token with the "Realtime Admin" permission
 CLOUDFLARE_API_TOKEN=
+
+# The one host unlocks /host with this passcode. Anyone else joins by link or code.
+HOST_PASSCODE=

@@ -90,7 +90,7 @@ export function PeopleSheet({
               </Row>
             )}
             {speakers.map((p) => (
-              <Row key={p.id} name={p.name} speaking={p.audioEnabled} tag={guestTag(p)}>
+              <Row key={p.id} name={p.name} speaking={p.audioEnabled}>
                 <MicState on={p.audioEnabled} />
                 {isHost && p.audioEnabled && perms.canDisableParticipantAudio && (
                   <IconButton label={`Mute ${p.name}`} onClick={() => p.disableAudio()}>
@@ -109,7 +109,7 @@ export function PeopleSheet({
           <Section title="Listening" count={listeners.length + (!isHost && !selfOnStage ? 1 : 0)}>
             {!isHost && !selfOnStage && <Row name={`${selfName} (you)`} avatarName={selfName} />}
             {listeners.map((p) => (
-              <Row key={p.id} name={p.name} tag={guestTag(p)}>
+              <Row key={p.id} name={p.name}>
                 {isHost && perms.kickParticipant && (
                   <IconButton
                     label={`Remove ${p.name}`}
@@ -130,8 +130,6 @@ export function PeopleSheet({
   );
 }
 
-// Guests' ids are minted by us as "guest-<uuid>" (see lib/guest.ts).
-const guestTag = (p: RTKParticipant) => (p.customParticipantId?.startsWith("guest-") ? <Tag muted>Guest</Tag> : null);
 
 function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
   return (
