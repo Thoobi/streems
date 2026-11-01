@@ -12,10 +12,8 @@ import {
   Monitor,
   Play,
   SignOut,
-  Stop,
+  PhoneDisconnect,
   Users,
-  VideoCamera,
-  VideoCameraSlash,
   X,
 } from "@phosphor-icons/react";
 import Link from "next/link";
@@ -184,7 +182,7 @@ function ConnectedRoom({ meeting, ...props }: LiveRoomProps & { meeting: Meeting
   const deny = (r: HandRequest) => attempt(() => meeting.stage.denyAccess([r.userId]), "Couldn’t decline the request");
 
   function end() {
-    if (!confirm("End the broadcast for everyone?")) return;
+    if (!confirm("End the call for everyone?")) return;
     startEnding(async () => {
       // Remove listeners from the room so they see "ended" right away; ignore if the preset can't.
       await meeting.participants.kickAll().catch(() => {});
@@ -291,7 +289,6 @@ function ConnectedRoom({ meeting, ...props }: LiveRoomProps & { meeting: Meeting
 
   // Everyone on stage (host + approved speakers) can share camera and screen, host first.
   const onAir = props.isHost || onStage;
-  const videoOn = meeting.self.videoEnabled;
   const screenOn = meeting.self.screenShareEnabled;
   const feeds: Feed[] = [];
   const addFeeds = (id: string, name: string, self: boolean, p: Sharer | null | undefined) => {
@@ -306,9 +303,6 @@ function ConnectedRoom({ meeting, ...props }: LiveRoomProps & { meeting: Meeting
   if (!props.isHost && onStage) addFeeds("self", meeting.self.name, true, meeting.self);
   for (const p of speakers) addFeeds(p.id, p.name, false, p);
 
-  const toggleCamera = () =>
-    attempt(() => (videoOn ? meeting.self.disableVideo() : meeting.self.enableVideo()), "Couldn’t turn on your camera");
-
   async function toggleScreen() {
     try {
       await (screenOn ? meeting.self.disableScreenShare() : meeting.self.enableScreenShare());
@@ -320,11 +314,9 @@ function ConnectedRoom({ meeting, ...props }: LiveRoomProps & { meeting: Meeting
     }
   }
 
+  // Audio-only presets: no camera button. Screen share stays while we decide on it.
   const mediaButtons = (
     <div className="flex items-center gap-3">
-      <ToggleButton on={videoOn} label={videoOn ? "Turn camera off" : "Turn camera on"} onClick={toggleCamera}>
-        {videoOn ? <VideoCamera size={22} weight="fill" /> : <VideoCameraSlash size={22} />}
-      </ToggleButton>
       {canShareScreen && (
         <ToggleButton on={screenOn} label={screenOn ? "Stop sharing screen" : "Share screen"} onClick={toggleScreen}>
           <Monitor size={22} weight={screenOn ? "fill" : "regular"} />
@@ -432,11 +424,11 @@ function ConnectedRoom({ meeting, ...props }: LiveRoomProps & { meeting: Meeting
                     <button
                       onClick={end}
                       disabled={ending}
-                      aria-label="End broadcast"
-                      title="End broadcast"
-                      className={`${iconButton} border-red-500/40 bg-red-600/20 text-red-300`}
+                      aria-label="End call"
+                      title="End call"
+                      className={`${iconButton} border-red-600 bg-red-600 text-white hover:bg-red-500`}
                     >
-                      <Stop size={20} weight="fill" />
+                      <PhoneDisconnect size={22} weight="fill" />
                     </button>
                   ) : (
                     <button onClick={stopSpeaking} aria-label="Back to listening" title="Back to listening" className={iconButton}>
